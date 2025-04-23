@@ -455,13 +455,6 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/
    end,
 })
 
-local MAINSection = MAINTab:CreateSection("DEAD RAILS")
 
-local Button = MAINTab:CreateButton({
-   Name = "GUI DEAD RAILS",
-   Callback = function()
-loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/DeadRails"))()
-   end,
-})
 
 
