@@ -5,7 +5,7 @@ local Window = Rayfield:CreateWindow({
    Icon = 140407192788352, -- Icon in Topbar. Can use Lucide Icons (string) or Roblox Image (number). 0 to use no icon (default).
    LoadingTitle = "LOADING...",
    LoadingSubtitle = "by Progamershacke1230",
-   Theme = "Default", -- Check https://docs.sirius.menu/rayfield/configuration/themes
+   Theme = "Amethyst", 
 
    DisableRayfieldPrompts = false,
    DisableBuildWarnings = false, -- Prevents Rayfield from warning when the script has a version mismatch with the interface
@@ -28,9 +28,9 @@ local Window = Rayfield:CreateWindow({
       Subtitle = "THANK FOR USE ME GUI code:2025",
       Note = "JOIN DC FOR KEY https://discord.gg/SeVgGbKh", -- Use this to tell the user how to get a key
       FileName = "https://discord.gg/SeVgGbKh", -- It is recommended to use something unique as other scripts using Rayfield may overwrite your key file
-      SaveKey = True, -- The user's key will be saved, but if you change the key, they will be unable to use your script
+      SaveKey = True, 
       GrabKeyFromSite = false, -- If this is true, set Key below to the RAW site you would like Rayfield to get the key from
-      Key = {"2025"} -- List of keys that will be accepted by the system, can be RAW file links (pastebin, github etc) or simple strings ("hello","key22")
+      Key = {"2025"} 
    }
 })
 
@@ -41,6 +41,40 @@ Rayfield:Notify({
    Image = "heart",
 })
 
+local MAINTab = Window:CreateTab("CREDITS", "credit-card")
+local MAINSection = MAINTab:CreateSection("MAIN")
+
+local Label = MAINTab:CreateLabel("KEY RESET EVERY 3DAYS", "scan-eye")
+local Label = MAINTab:CreateLabel("KEY ON https://discord.gg/2223nPTg", "scan-eye")
+
+local MAINTab = Window:CreateTab("GUIS FOR GAMES", "user")
+local MAINSection = MAINTab:CreateSection("BLOOD DEBT")
+
+local Button = MAINTab:CreateButton({
+   Name = "GUI BLOOD DEBT",
+   Callback = function()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/ratlabsofficial/scripts/refs/heads/main/blooddebt"))()
+   end,
+})
+
+
+local MAINSection = MAINTab:CreateSection("DEAD RAILS")
+
+local Button = MAINTab:CreateButton({
+   Name = "GUI DEAD RAILS",
+   Callback = function()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/DeadRails"))()
+   end,
+})
+
+local MAINSection = MAINTab:CreateSection("BROOKHAVEN")
+
+local Button = MAINTab:CreateButton({
+   Name = "MANGOHUB",
+   Callback = function()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/rogelioajax/lua/main/MangoHub", true))()
+   end,
+})
 
 local MAINTab = Window:CreateTab("GUI", "earth")
 local MAINSection = MAINTab:CreateSection("MAIN")
@@ -428,33 +462,41 @@ humanoid.Died:Connect(function() tc:Disconnect() end)
    end,
 })
 
+
+local MAINTab = Window:CreateTab("MISC", "hammer")
+local MAINSection = MAINTab:CreateSection("MAIN")
+
 local Button = MAINTab:CreateButton({
-   Name = "SUS HUB",
+   Name = "infinite yield",
    Callback = function()
-loadstring(game:HttpGet("https://raw.githubusercontent.com/ShutUpJamesTheLoser/freaky/refs/heads/main/fe", true))()
+loadstring(game:HttpGet(('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'),true))()
    end,
 })
 
-local MAINTab = Window:CreateTab("GUIS FOR GAMES", "user")
-local MAINSection = MAINTab:CreateSection("BLOOD DEBT")
+local MAINSelection = MAINTab:CreateSection("Functions")
 
-local Button = MAINTab:CreateButton({
-   Name = "GUI BLOOD DEBT",
-   Callback = function()
-loadstring(game:HttpGet("https://raw.githubusercontent.com/ratlabsofficial/scripts/refs/heads/main/blooddebt"))()
+local Slider = MAINTab:CreateSlider({
+   Name = "WalkSpeed",
+   Range = {0, 500},
+   Increment = 1,
+   Suffix = "Speed",
+   CurrentValue = 16,
+   Flag = "Slider1", 
+   Callback = function(Value)
+        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = (Value)
    end,
 })
 
-
-local MAINSection = MAINTab:CreateSection("DEAD RAILS")
-
-local Button = MAINTab:CreateButton({
-   Name = "GUI DEAD RAILS",
-   Callback = function()
-loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/DeadRails"))()
+local Slider = MAINTab:CreateSlider({
+   Name = "JumpPower",
+   Range = {0, 500},
+   Increment = 1,
+   Suffix = "Jump",
+   CurrentValue = 16,
+   Flag = "Slider1", 
+   Callback = function(Value)
+        game.Players.LocalPlayer.Character.Humanoid.JumpPower = (Value)
    end,
 })
-
-
 
 
