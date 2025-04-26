@@ -1,3 +1,36 @@
+--WHAT YOU WANNA HERE
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
@@ -25,9 +58,9 @@ local Window = Rayfield:CreateWindow({
    KeySystem = true, 
    KeySettings = {
       Title = "THANK NOTE",
-      Subtitle = "THANK FOR USE ME GUI code:2025",
+      Subtitle = "THANK FOR USE ME GUI ",
       Note = "JOIN DC FOR KEY https://discord.gg/SeVgGbKh", -- Use this to tell the user how to get a key
-      FileName = "https://discord.gg/SeVgGbKh", -- It is recommended to use something unique as other scripts using Rayfield may overwrite your key file
+      FileName = "https://discord.gg/2223nPTg", -- It is recommended to use something unique as other scripts using Rayfield may overwrite your key file
       SaveKey = True, 
       GrabKeyFromSite = false, -- If this is true, set Key below to the RAW site you would like Rayfield to get the key from
       Key = {"2025"} 
@@ -498,5 +531,3 @@ local Slider = MAINTab:CreateSlider({
         game.Players.LocalPlayer.Character.Humanoid.JumpPower = (Value)
    end,
 })
-
-
