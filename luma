@@ -79,7 +79,6 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/rogelioajax/lua/main/
 
 local MAINSection = MAINTab:CreateSection("NEW BUILD A BOAT FOT TREASURE")
 
-
 local Button = MAINTab:CreateButton({
    Name = "GUI BUILD A BOAT FOT TREASURE ",
    Callback = function()
@@ -98,8 +97,6 @@ loadstring(game:HttpGet('https://raw.githubusercontent.com/NooVster/v1.1/main/So
 
 local MAINTab = Window:CreateTab("GUI", "earth")
 local MAINSection = MAINTab:CreateSection("MAIN")
-
-
 
 local Button = MAINTab:CreateButton({
    Name = "SUS HUB ",
