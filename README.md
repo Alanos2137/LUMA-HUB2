@@ -98,10 +98,10 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/rogelioajax/lua/main/
    end,
 })
 
-local MAINSection = MAINTab:CreateSection("DEAD RAILS")
+local MAINSection = MAINTab:CreateSection("AIM BOT")
 
 local Button = MAINTab:CreateButton({
-   Name = "GUI DEAD RAILS",
+   Name = "AIM BOT",
    Callback = function()
 local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
 local Window = OrionLib:MakeWindow({Name = "Universal Aimlock GUI v2", HidePremium = false, SaveConfig = true, ConfigFolder = "OrionTest"})
