@@ -1,8 +1,8 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Criminality",
-   Icon = 6862780932, -- Icon in Topbar. Can use Lucide Icons (string) or Roblox Image (number). 0 to use no icon (default).
+   Name = "MENEL",
+   Icon = 6903296098, -- Icon in Topbar. Can use Lucide Icons (string) or Roblox Image (number). 0 to use no icon (default).
    LoadingTitle = "Loading...",
    LoadingSubtitle = "by Progamershacke1230",
    ShowText = "Rayfield", 
@@ -25,30 +25,72 @@ local Window = Rayfield:CreateWindow({
       RememberJoins = true -- Set this to false to make them join the discord every time they load it up
    },
 
-   KeySystem = false, -- Set this to true to use our key system
+   KeySystem = true, -- Set this to true to use our key system
    KeySettings = {
-      Title = "Untitled",
+      Title = "KEY",
       Subtitle = "Key System",
       Note = "No method of obtaining the key is provided", -- Use this to tell the user how to get a key
       FileName = "Key", -- It is recommended to use something unique as other scripts using Rayfield may overwrite your key file
       SaveKey = true, -- The user's key will be saved, but if you change the key, they will be unable to use your script
       GrabKeyFromSite = false, -- If this is true, set Key below to the RAW site you would like Rayfield to get the key from
-      Key = {"Hello"} -- List of keys that will be accepted by the system, can be RAW file links (pastebin, github etc) or simple strings ("hello","key22")
+      Key = {"MENEL"} -- List of keys that will be accepted by the system, can be RAW file links (pastebin, github etc) or simple strings ("hello","key22")
    }
 })
 
 Rayfield:Notify({
    Title = "Thanks for using the script",
-   Content = "",
+   Content = "VERSION 0.1",
    Duration = 6.5,
    Image = 8073107221,
 })
 
-local TabMain = Window:CreateTab("Main Legit", "crosshair")
+
+
+local TabMain = Window:CreateTab("Visual", "eye")
 local SectionMain = TabMain:CreateSection("Main")
 
--- // Player ESP + Nametag System (distance + visibility logic)
--- // 19/10/2025 Final Custom Version
+local Button = TabMain:CreateButton({
+    Name = "FullBright + No Fog",
+    Callback = function()
+        local Light = game:GetService("Lighting")
+        local fullbrightEnabled = false -- flaga, żeby nie spamować
+
+        local function doFullBright()
+            if fullbrightEnabled then return end -- jeśli już włączone, nic nie robimy
+            fullbrightEnabled = true
+
+            -- ustawienia ambient / kolor
+            Light.Ambient = Color3.new(1, 1, 1)
+            Light.ColorShift_Bottom = Color3.new(1, 1, 1)
+            Light.ColorShift_Top = Color3.new(1, 1, 1)
+
+            -- ustawienia globalne Lighting
+            Light.FogEnd = 100000
+            Light.FogStart = 0
+            Light.ClockTime = 14
+            Light.Brightness = 2
+            Light.GlobalShadows = false
+
+            -- Listener, który utrzymuje ustawienia przy zmianach Lighting
+            Light.Changed:Connect(function()
+                Light.FogEnd = 100000
+                Light.FogStart = 0
+                Light.ClockTime = 14
+                Light.Brightness = 2
+                Light.GlobalShadows = false
+            end)
+
+            Light.LightingChanged:Connect(function()
+                Light.Ambient = Color3.new(1,1,1)
+                Light.ColorShift_Bottom = Color3.new(1,1,1)
+                Light.ColorShift_Top = Color3.new(1,1,1)
+            end)
+        end
+
+        -- Wywołanie raz po kliknięciu przycisku
+        doFullBright()
+    end,
+})
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -234,6 +276,217 @@ local Toggle2 = TabMain:CreateToggle({
 	end,
 })
 
+local TabMain = Window:CreateTab("Combat", "crosshair")
+local SectionMain = TabMain:CreateSection("Main")
+
+
+
+
+
+local Camera = workspace.CurrentCamera
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+
+local Holding = false
+local activeTween = nil
+
+-- Domyślne ustawienia
+_G.AimbotEnabled = false -- sterowane toggle'em
+_G.TeamCheck = true
+_G.AimPart = "Head"
+_G.Sensitivity = 0.5
+_G.CircleRadius = 108
+_G.CircleColor = Color3.fromRGB(255,255,255)
+_G.CircleTransparency = 0.7
+_G.CircleSides = 64
+_G.CircleFilled = false
+_G.CircleVisible = true
+_G.CircleThickness = 0
+
+-- FOV Circle (tworzymy raz)
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+FOVCircle.Radius = _G.CircleRadius
+FOVCircle.Filled = _G.CircleFilled
+FOVCircle.Color = _G.CircleColor
+FOVCircle.Visible = false -- domyślnie niewidoczny dopóki toggle nie włączony
+FOVCircle.Transparency = _G.CircleTransparency
+FOVCircle.NumSides = _G.CircleSides
+FOVCircle.Thickness = _G.CircleThickness
+
+-- Funkcja do znalezienia najbliższego gracza w FOV (zwraca nil jeśli brak)
+local function GetClosestPlayer()
+    local MaximumDistance = _G.CircleRadius
+    local Target = nil
+
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= LocalPlayer then
+            if (not _G.TeamCheck) or (v.Team ~= LocalPlayer.Team) then
+                local char = v.Character
+                if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+                    local hrp = char:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        local ScreenPoint = Camera:WorldToScreenPoint(hrp.Position)
+                        local VectorDistance = (Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y) - Vector2.new(ScreenPoint.X, ScreenPoint.Y)).Magnitude
+                        if VectorDistance < MaximumDistance then
+                            Target = v
+                            MaximumDistance = VectorDistance
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return Target
+end
+
+-- Toggle Aimbot
+local AimbotToggle = TabMain:CreateToggle({
+    Name = "Aimbot",
+    CurrentValue = false,
+    Flag = "AimbotToggle",
+    Callback = function(Value)
+        _G.AimbotEnabled = Value
+
+        if not Value then
+            -- Wyłączone: ukryj circle i anuluj tween
+            FOVCircle.Visible = false
+            if activeTween then
+                pcall(function() activeTween:Cancel() end)
+                activeTween = nil
+            end
+        else
+            -- Włączone: pokaż circle zgodnie z ustawieniem widoczności
+            FOVCircle.Visible = _G.CircleVisible
+        end
+    end,
+})
+
+-- Input Sensitivity
+local SensitivityInput = TabMain:CreateInput({
+    Name = "Sensitivity",
+    CurrentValue = tostring(_G.Sensitivity),
+    PlaceholderText = "0 - 1",
+    RemoveTextAfterFocusLost = false,
+    Flag = "AimbotSensitivity",
+    Callback = function(Text)
+        local num = tonumber(Text)
+        if num then
+            if num < 0 then num = 0 end
+            if num > 1 then num = 1 end
+            _G.Sensitivity = num
+        end
+    end,
+})
+
+-- Input FOV Radius
+local FOVRadiusInput = TabMain:CreateInput({
+    Name = "FOV Radius",
+    CurrentValue = tostring(_G.CircleRadius),
+    PlaceholderText = "Promień FOV",
+    RemoveTextAfterFocusLost = false,
+    Flag = "FOVRadiusInput",
+    Callback = function(Text)
+        local num = tonumber(Text)
+        if num then
+            if num < 0 then num = 0 end
+            _G.CircleRadius = num
+        end
+    end,
+})
+
+-- Toggle Team Check
+local TeamCheckToggle = TabMain:CreateToggle({
+    Name = "Team Check",
+    CurrentValue = _G.TeamCheck,
+    Flag = "TeamCheckToggle",
+    Callback = function(Value)
+        _G.TeamCheck = Value
+    end,
+})
+
+-- Obsługa przytrzymania prawego przycisku (Holding)
+UserInputService.InputBegan:Connect(function(Input)
+    if Input.UserInputType == Enum.UserInputType.MouseButton2 then
+        Holding = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(Input)
+    if Input.UserInputType == Enum.UserInputType.MouseButton2 then
+        Holding = false
+        -- anuluj tween gdy puszczamy przycisk
+        if activeTween then
+            pcall(function() activeTween:Cancel() end)
+            activeTween = nil
+        end
+    end
+end)
+
+-- RenderStepped do aktualizacji FOV i aimbota
+RunService.RenderStepped:Connect(function()
+    -- jeśli toggle wyłączony, circle jest ukryte i kończymy funkcję — NIC więcej nie nadpisujemy
+    if not _G.AimbotEnabled then
+        FOVCircle.Visible = false
+        if activeTween then
+            pcall(function() activeTween:Cancel() end)
+            activeTween = nil
+        end
+        return
+    end
+
+    -- jeśli toggle włączony -> aktualizujemy circle
+    FOVCircle.Position = Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y)
+    FOVCircle.Radius = _G.CircleRadius
+    FOVCircle.Filled = _G.CircleFilled
+    FOVCircle.Color = _G.CircleColor
+    FOVCircle.Visible = _G.CircleVisible
+    FOVCircle.Transparency = _G.CircleTransparency
+    FOVCircle.NumSides = _G.CircleSides
+    FOVCircle.Thickness = _G.CircleThickness
+
+    -- Aimbot: działa tylko gdy Holding (RMB) i toggle włączony
+    if Holding then
+        local Target = GetClosestPlayer()
+        if Target and Target.Character and Target.Character:FindFirstChild(_G.AimPart) then
+            local AimPos = Target.Character[_G.AimPart].Position
+
+            -- anuluj poprzedni tween zanim utworzymy nowy
+            if activeTween then
+                pcall(function() activeTween:Cancel() end)
+                activeTween = nil
+            end
+
+            local ok, t = pcall(function()
+                return TweenService:Create(Camera, TweenInfo.new(_G.Sensitivity, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {CFrame = CFrame.new(Camera.CFrame.Position, AimPos)})
+            end)
+            if ok and t then
+                activeTween = t
+                pcall(function() activeTween:Play() end)
+            end
+        else
+            -- brak targetu -> anuluj aktywny tween
+            if activeTween then
+                pcall(function() activeTween:Cancel() end)
+                activeTween = nil
+            end
+        end
+    end
+end)
+
+
+
+
+
+
+
+
+
+
 local Button = TabMain:CreateButton({
    Name = "AIM BOT GUI",
    Callback = function()
@@ -241,60 +494,14 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/Xxtan31/Equinox-Hub/m
    end,
 })
 
--- Pobieramy Lighting
-local Light = game:GetService("Lighting")
 
--- Funkcja FullBright
-local function setFullBright()
-	Light.Ambient = Color3.new(1, 1, 1)
-	Light.ColorShift_Bottom = Color3.new(1, 1, 1)
-	Light.ColorShift_Top = Color3.new(1, 1, 1)
-end
 
--- Funkcja przywracająca normalne światło
-local function restoreLighting()
-	Light.Ambient = Color3.new(0, 0, 0)
-	Light.ColorShift_Bottom = Color3.new(0, 0, 0)
-	Light.ColorShift_Top = Color3.new(0, 0, 0)
-end
+local TabMain = Window:CreateTab("FARM", "dollar-sign")
+local SectionMain = TabMain:CreateSection("Main")
 
--- Przechowujemy event, żeby móc go odłączyć
-local lightingConnection
 
--- Funkcja włączająca FullBright
-local function setFullBright()
-    game.Lighting.Ambient = Color3.new(1, 1, 1)
-    game.Lighting.Brightness = 2
-    game.Lighting.FogEnd = 100000
-end
 
--- Funkcja przywracająca domyślne wartości
-local function restoreLighting()
-    game.Lighting.Ambient = Color3.new(0.5, 0.5, 0.5)
-    game.Lighting.Brightness = 1
-    game.Lighting.FogEnd = 1000
-end
+local TabMain = Window:CreateTab("UPDATE", "bell-plus")
+local SectionMain = TabMain:CreateSection("Main")
 
--- Tworzymy toggle
-local Toggle = TabMain:CreateToggle({
-    Name = "FullBright",
-    CurrentValue = false,
-    Flag = "FullBrightToggle",
-    Callback = function(Value)
-        if Value then
-            setFullBright()
-            -- Odłączamy stare połączenie jeśli istnieje, żeby nie dublować eventów
-            if lightingConnection then
-                lightingConnection:Disconnect()
-            end
-            -- Automatyczne utrzymanie jasności
-            lightingConnection = game.Lighting:GetPropertyChangedSignal("Lighting"):Connect(setFullBright)
-        else
-            restoreLighting()
-            if lightingConnection then
-                lightingConnection:Disconnect()
-                lightingConnection = nil
-            end
-        end
-    end,
-})
+local Label = TabMain:CreateLabel("UI APPEARANCE CHANGED, NEW BUTTONS ADDED, AND FARM MAYBE WILL BE IN THE NEXT UPDATE", "bitcoin")
