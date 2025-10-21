@@ -1,1 +1,300 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
+local Window = Rayfield:CreateWindow({
+   Name = "Criminality",
+   Icon = 6862780932, -- Icon in Topbar. Can use Lucide Icons (string) or Roblox Image (number). 0 to use no icon (default).
+   LoadingTitle = "Loading...",
+   LoadingSubtitle = "by Progamershacke1230",
+   ShowText = "Rayfield", 
+   Theme = "Dark Blue", 
+
+   ToggleUIKeybind = "K", -- The keybind to toggle the UI visibility (string like "K" or Enum.KeyCode)
+
+   DisableRayfieldPrompts = false,
+   DisableBuildWarnings = false, -- Prevents Rayfield from warning when the script has a version mismatch with the interface
+
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = nil, -- Create a custom folder for your hub/game
+      FileName = "Criminality"
+   },
+
+   Discord = {
+      Enabled = false, -- Prompt the user to join your Discord server if their executor supports it
+      Invite = "noinvitelink", -- The Discord invite code, do not include discord.gg/. E.g. discord.gg/ ABCD would be ABCD
+      RememberJoins = true -- Set this to false to make them join the discord every time they load it up
+   },
+
+   KeySystem = false, -- Set this to true to use our key system
+   KeySettings = {
+      Title = "Untitled",
+      Subtitle = "Key System",
+      Note = "No method of obtaining the key is provided", -- Use this to tell the user how to get a key
+      FileName = "Key", -- It is recommended to use something unique as other scripts using Rayfield may overwrite your key file
+      SaveKey = true, -- The user's key will be saved, but if you change the key, they will be unable to use your script
+      GrabKeyFromSite = false, -- If this is true, set Key below to the RAW site you would like Rayfield to get the key from
+      Key = {"Hello"} -- List of keys that will be accepted by the system, can be RAW file links (pastebin, github etc) or simple strings ("hello","key22")
+   }
+})
+
+Rayfield:Notify({
+   Title = "Thanks for using the script",
+   Content = "",
+   Duration = 6.5,
+   Image = 8073107221,
+})
+
+local TabMain = Window:CreateTab("Main Legit", "crosshair")
+local SectionMain = TabMain:CreateSection("Main")
+
+-- // Player ESP + Nametag System (distance + visibility logic)
+-- // 19/10/2025 Final Custom Version
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local MaxDistance = 400
+local MinDistance = 50
+
+-- Toggles
+local NametagsEnabled = false
+local EspEnabled = false
+
+-- // Tworzenie Nametagów
+local function CreateNametag(Player)
+	if Player == LocalPlayer then return end
+
+	local function SetupNametag(Character)
+		local Head = Character:WaitForChild("Head", 5)
+		if not Head then return end
+
+		local OldTag = Head:FindFirstChild("Nametag")
+		if OldTag then OldTag:Destroy() end
+
+		local BillboardGui = Instance.new("BillboardGui")
+		BillboardGui.Name = "Nametag"
+		BillboardGui.Adornee = Head
+		BillboardGui.Size = UDim2.new(0, 120, 0, 30)
+		BillboardGui.StudsOffset = Vector3.new(0, 2.5, 0)
+		BillboardGui.AlwaysOnTop = true
+
+		local Label = Instance.new("TextLabel")
+		Label.Size = UDim2.new(1, 0, 1, 0)
+		Label.BackgroundTransparency = 1
+		Label.TextColor3 = Color3.fromRGB(255, 255, 255)
+		Label.TextStrokeTransparency = 0.7
+		Label.Font = Enum.Font.Code
+		Label.TextScaled = true
+		Label.Text = Player.Name
+		Label.Parent = BillboardGui
+
+		BillboardGui.Parent = Head
+
+		local Connection
+		Connection = RunService.Heartbeat:Connect(function()
+			if not Character:FindFirstChild("Head") or not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("Head") then
+				BillboardGui.Enabled = false
+				return
+			end
+
+			local Distance = (Character.Head.Position - LocalPlayer.Character.Head.Position).Magnitude
+
+			if NametagsEnabled and Distance <= MaxDistance then
+				if Distance <= MinDistance then
+					Label.Text = Player.Name
+				else
+					Label.Text = string.format("%s [%.0f]", Player.Name, Distance)
+				end
+				BillboardGui.Enabled = true
+			else
+				BillboardGui.Enabled = false
+			end
+		end)
+
+		local Humanoid = Character:FindFirstChildOfClass("Humanoid")
+		if Humanoid then
+			Humanoid.Died:Connect(function()
+				if Connection then Connection:Disconnect() end
+				BillboardGui:Destroy()
+			end)
+		end
+	end
+
+	if Player.Character then
+		SetupNametag(Player.Character)
+	end
+	Player.CharacterAdded:Connect(SetupNametag)
+end
+
+-- // ESP / Highlight (włączany/wyłączany przez toggle)
+local function ApplyHighlight(Player)
+	if Player == LocalPlayer then return end
+
+	local function SetupHighlight(Character)
+		for _, v in pairs(Character:GetChildren()) do
+			if v:IsA("Highlight") then v:Destroy() end
+		end
+
+		local Highlight = Instance.new("Highlight")
+		Highlight.Parent = Character
+		Highlight.Enabled = EspEnabled
+		Highlight.FillColor = Player.TeamColor and Player.TeamColor.Color or Color3.fromRGB(255, 48, 51)
+		Highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+		Highlight.FillTransparency = 0.5
+		Highlight.OutlineTransparency = 0
+
+		Player:GetPropertyChangedSignal("TeamColor"):Connect(function()
+			Highlight.FillColor = Player.TeamColor and Player.TeamColor.Color or Color3.fromRGB(255, 48, 51)
+		end)
+
+		RunService.Heartbeat:Connect(function()
+			Highlight.Enabled = EspEnabled
+		end)
+	end
+
+	if Player.Character then
+		SetupHighlight(Player.Character)
+	end
+	Player.CharacterAdded:Connect(SetupHighlight)
+end
+
+-- // Toggle funkcja dla Nametagów
+local function ToggleNametags(Value)
+	NametagsEnabled = Value
+
+	if NametagsEnabled then
+		Rayfield:Notify({
+			Title = "ESP ENABLE",
+			Content = "Nametags + distance visible (50-400 studs)",
+			Duration = 6.5,
+			Image = 6523858394,
+		})
+	else
+		Rayfield:Notify({
+			Title = "ESP DISABLE",
+			Content = "Nametags hidden",
+			Duration = 6.5,
+			Image = 125716871945612,
+		})
+	end
+end
+
+-- // Toggle funkcja dla ESP (biała obwódka)
+local function ToggleESP(Value)
+	EspEnabled = Value
+
+	if EspEnabled then
+		Rayfield:Notify({
+			Title = "HIGHLIGHT ENABLED",
+			Content = "You can now see players through walls.",
+			Duration = 6.5,
+			Image = 6523858394,
+		})
+	else
+		Rayfield:Notify({
+			Title = "HIGHLIGHT DISABLED",
+			Content = "Player outline hidden.",
+			Duration = 6.5,
+			Image = 125716871945612,
+		})
+	end
+end
+
+-- // Dla obecnych graczy
+for _, Player in pairs(Players:GetPlayers()) do
+	CreateNametag(Player)
+	ApplyHighlight(Player)
+end
+
+-- // Dla nowych graczy
+Players.PlayerAdded:Connect(function(Player)
+	CreateNametag(Player)
+	ApplyHighlight(Player)
+end)
+
+-- ==========================================================
+-- // GUI TOGGLES (Rayfield)
+-- ==========================================================
+local Toggle1 = TabMain:CreateToggle({
+	Name = "Show Nametags (50-400 studs)",
+	CurrentValue = false,
+	Flag = "ToggleNametags",
+	Callback = function(Value)
+		ToggleNametags(Value)
+	end,
+})
+
+local Toggle2 = TabMain:CreateToggle({
+	Name = "Highlight (see through walls)",
+	CurrentValue = false,
+	Flag = "ToggleESP",
+	Callback = function(Value)
+		ToggleESP(Value)
+	end,
+})
+
+local Button = TabMain:CreateButton({
+   Name = "AIM BOT GUI",
+   Callback = function()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Xxtan31/Equinox-Hub/main/Aimbots/directions.lua", true))()
+   end,
+})
+
+-- Pobieramy Lighting
+local Light = game:GetService("Lighting")
+
+-- Funkcja FullBright
+local function setFullBright()
+	Light.Ambient = Color3.new(1, 1, 1)
+	Light.ColorShift_Bottom = Color3.new(1, 1, 1)
+	Light.ColorShift_Top = Color3.new(1, 1, 1)
+end
+
+-- Funkcja przywracająca normalne światło
+local function restoreLighting()
+	Light.Ambient = Color3.new(0, 0, 0)
+	Light.ColorShift_Bottom = Color3.new(0, 0, 0)
+	Light.ColorShift_Top = Color3.new(0, 0, 0)
+end
+
+-- Przechowujemy event, żeby móc go odłączyć
+local lightingConnection
+
+-- Funkcja włączająca FullBright
+local function setFullBright()
+    game.Lighting.Ambient = Color3.new(1, 1, 1)
+    game.Lighting.Brightness = 2
+    game.Lighting.FogEnd = 100000
+end
+
+-- Funkcja przywracająca domyślne wartości
+local function restoreLighting()
+    game.Lighting.Ambient = Color3.new(0.5, 0.5, 0.5)
+    game.Lighting.Brightness = 1
+    game.Lighting.FogEnd = 1000
+end
+
+-- Tworzymy toggle
+local Toggle = TabMain:CreateToggle({
+    Name = "FullBright",
+    CurrentValue = false,
+    Flag = "FullBrightToggle",
+    Callback = function(Value)
+        if Value then
+            setFullBright()
+            -- Odłączamy stare połączenie jeśli istnieje, żeby nie dublować eventów
+            if lightingConnection then
+                lightingConnection:Disconnect()
+            end
+            -- Automatyczne utrzymanie jasności
+            lightingConnection = game.Lighting:GetPropertyChangedSignal("Lighting"):Connect(setFullBright)
+        else
+            restoreLighting()
+            if lightingConnection then
+                lightingConnection:Disconnect()
+                lightingConnection = nil
+            end
+        end
+    end,
+})
