@@ -39,7 +39,7 @@ local Window = Rayfield:CreateWindow({
 
 Rayfield:Notify({
    Title = "Thanks for using the script",
-   Content = "VERSION 0.1",
+   Content = "VERSION 0.12",
    Duration = 6.5,
    Image = 8073107221,
 })
