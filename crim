@@ -283,7 +283,8 @@ local SectionMain = TabMain:CreateSection("Main")
 
 
 
-local Camera = workspace.CurrentCamera
+-- Aimbot z poprawnym WallCheck (gotowy do wklejenia)
+local Camera = workspace.CurrentCamera or workspace:WaitForChild("Camera")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -293,31 +294,72 @@ local LocalPlayer = Players.LocalPlayer
 local Holding = false
 local activeTween = nil
 
--- Domyślne ustawienia
-_G.AimbotEnabled = false -- sterowane toggle'em
+-- Ustawienia domyślne
+_G.AimbotEnabled = false
+_G.WallCheck = true
 _G.TeamCheck = true
 _G.AimPart = "Head"
 _G.Sensitivity = 0.5
-_G.CircleRadius = 108
-_G.CircleColor = Color3.fromRGB(255,255,255)
-_G.CircleTransparency = 0.7
+_G.CircleRadius = 120
+_G.CircleColor = Color3.fromRGB(0,255,0)
+_G.CircleTransparency = 0.6
 _G.CircleSides = 64
 _G.CircleFilled = false
 _G.CircleVisible = true
-_G.CircleThickness = 0
+_G.CircleThickness = 1
 
--- FOV Circle (tworzymy raz)
-local FOVCircle = Drawing.new("Circle")
-FOVCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-FOVCircle.Radius = _G.CircleRadius
-FOVCircle.Filled = _G.CircleFilled
-FOVCircle.Color = _G.CircleColor
-FOVCircle.Visible = false -- domyślnie niewidoczny dopóki toggle nie włączony
-FOVCircle.Transparency = _G.CircleTransparency
-FOVCircle.NumSides = _G.CircleSides
-FOVCircle.Thickness = _G.CircleThickness
+-- FOV circle (Drawing API)
+local success, FOVCircle = pcall(function() return Drawing.new("Circle") end)
+if success and FOVCircle then
+    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    FOVCircle.Radius = _G.CircleRadius
+    FOVCircle.Filled = _G.CircleFilled
+    FOVCircle.Color = _G.CircleColor
+    FOVCircle.Visible = false
+    FOVCircle.Transparency = _G.CircleTransparency
+    FOVCircle.NumSides = _G.CircleSides
+    FOVCircle.Thickness = _G.CircleThickness
+else
+    FOVCircle = nil -- Drawing nie dostępny — bez circle
+end
 
--- Funkcja do znalezienia najbliższego gracza w FOV (zwraca nil jeśli brak)
+-- Poprawiona funkcja WallCheck (raycast z kamery)
+local function isVisible(targetPart)
+    if not _G.WallCheck then return true end
+    if not targetPart or not Camera then return false end
+
+    local origin = Camera.CFrame.Position
+    local directionVec = (targetPart.Position - origin)
+    local distance = directionVec.Magnitude
+    if distance <= 0 then return true end
+
+    local rayParams = RaycastParams.new()
+    -- ignoruj własną postać (wszystkie części)
+    if LocalPlayer and LocalPlayer.Character then
+        rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
+    else
+        rayParams.FilterDescendantsInstances = {}
+    end
+    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+    rayParams.IgnoreWater = true
+
+    local result = workspace:Raycast(origin, directionVec.Unit * distance, rayParams)
+
+    -- jeśli nic nie trafiono -> widoczny
+    if not result then
+        return true
+    end
+
+    -- jeśli trafił w coś należącego do tej samej postaci (targetPart.Parent to character) -> widoczny
+    if result.Instance and (result.Instance:IsDescendantOf(targetPart.Parent) or targetPart:IsDescendantOf(result.Instance)) then
+        return true
+    end
+
+    -- inaczej coś zasłania
+    return false
+end
+
+-- Znajdź najbliższego gracza w FOV z uwzględnieniem wallcheck
 local function GetClosestPlayer()
     local MaximumDistance = _G.CircleRadius
     local Target = nil
@@ -329,11 +371,14 @@ local function GetClosestPlayer()
                 if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
                     local hrp = char:FindFirstChild("HumanoidRootPart")
                     if hrp then
-                        local ScreenPoint = Camera:WorldToScreenPoint(hrp.Position)
-                        local VectorDistance = (Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y) - Vector2.new(ScreenPoint.X, ScreenPoint.Y)).Magnitude
-                        if VectorDistance < MaximumDistance then
-                            Target = v
-                            MaximumDistance = VectorDistance
+                        local screenPoint, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                        if onScreen then
+                            local mouseVec = Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y)
+                            local vecDist = (mouseVec - Vector2.new(screenPoint.X, screenPoint.Y)).Magnitude
+                            if vecDist < MaximumDistance and isVisible(hrp) then
+                                Target = v
+                                MaximumDistance = vecDist
+                            end
                         end
                     end
                 end
@@ -344,62 +389,36 @@ local function GetClosestPlayer()
     return Target
 end
 
--- Toggle Aimbot
+-- GUI: Toggle Aimbot
 local AimbotToggle = TabMain:CreateToggle({
     Name = "Aimbot",
     CurrentValue = false,
     Flag = "AimbotToggle",
     Callback = function(Value)
         _G.AimbotEnabled = Value
-
         if not Value then
-            -- Wyłączone: ukryj circle i anuluj tween
-            FOVCircle.Visible = false
+            if FOVCircle then FOVCircle.Visible = false end
             if activeTween then
                 pcall(function() activeTween:Cancel() end)
                 activeTween = nil
             end
         else
-            -- Włączone: pokaż circle zgodnie z ustawieniem widoczności
-            FOVCircle.Visible = _G.CircleVisible
+            if FOVCircle then FOVCircle.Visible = _G.CircleVisible end
         end
     end,
 })
 
--- Input Sensitivity
-local SensitivityInput = TabMain:CreateInput({
-    Name = "Sensitivity",
-    CurrentValue = tostring(_G.Sensitivity),
-    PlaceholderText = "0 - 1",
-    RemoveTextAfterFocusLost = false,
-    Flag = "AimbotSensitivity",
-    Callback = function(Text)
-        local num = tonumber(Text)
-        if num then
-            if num < 0 then num = 0 end
-            if num > 1 then num = 1 end
-            _G.Sensitivity = num
-        end
+-- GUI: WallCheck toggle
+local WallCheckToggle = TabMain:CreateToggle({
+    Name = "Wall Check",
+    CurrentValue = _G.WallCheck,
+    Flag = "WallCheckToggle",
+    Callback = function(Value)
+        _G.WallCheck = Value
     end,
 })
 
--- Input FOV Radius
-local FOVRadiusInput = TabMain:CreateInput({
-    Name = "FOV Radius",
-    CurrentValue = tostring(_G.CircleRadius),
-    PlaceholderText = "Promień FOV",
-    RemoveTextAfterFocusLost = false,
-    Flag = "FOVRadiusInput",
-    Callback = function(Text)
-        local num = tonumber(Text)
-        if num then
-            if num < 0 then num = 0 end
-            _G.CircleRadius = num
-        end
-    end,
-})
-
--- Toggle Team Check
+-- GUI: TeamCheck toggle
 local TeamCheckToggle = TabMain:CreateToggle({
     Name = "Team Check",
     CurrentValue = _G.TeamCheck,
@@ -409,7 +428,38 @@ local TeamCheckToggle = TabMain:CreateToggle({
     end,
 })
 
--- Obsługa przytrzymania prawego przycisku (Holding)
+-- GUI: Sensitivity input
+local SensitivityInput = TabMain:CreateInput({
+    Name = "Sensitivity",
+    CurrentValue = tostring(_G.Sensitivity),
+    PlaceholderText = "0 - 1",
+    RemoveTextAfterFocusLost = false,
+    Flag = "AimbotSensitivity",
+    Callback = function(Text)
+        local num = tonumber(Text)
+        if num then
+            _G.Sensitivity = math.clamp(num, 0, 1)
+        end
+    end,
+})
+
+-- GUI: FOV Radius input
+local FOVRadiusInput = TabMain:CreateInput({
+    Name = "FOV Radius",
+    CurrentValue = tostring(_G.CircleRadius),
+    PlaceholderText = "Promień FOV",
+    RemoveTextAfterFocusLost = false,
+    Flag = "FOVRadiusInput",
+    Callback = function(Text)
+        local num = tonumber(Text)
+        if num then
+            _G.CircleRadius = math.max(0, num)
+            if FOVCircle then FOVCircle.Radius = _G.CircleRadius end
+        end
+    end,
+})
+
+-- Obsługa przytrzymania prawego przycisku (holding)
 UserInputService.InputBegan:Connect(function(Input)
     if Input.UserInputType == Enum.UserInputType.MouseButton2 then
         Holding = true
@@ -419,7 +469,6 @@ end)
 UserInputService.InputEnded:Connect(function(Input)
     if Input.UserInputType == Enum.UserInputType.MouseButton2 then
         Holding = false
-        -- anuluj tween gdy puszczamy przycisk
         if activeTween then
             pcall(function() activeTween:Cancel() end)
             activeTween = nil
@@ -427,49 +476,44 @@ UserInputService.InputEnded:Connect(function(Input)
     end
 end)
 
--- RenderStepped do aktualizacji FOV i aimbota
+-- Główny loop aimbota (RenderStepped)
 RunService.RenderStepped:Connect(function()
-    -- jeśli toggle wyłączony, circle jest ukryte i kończymy funkcję — NIC więcej nie nadpisujemy
     if not _G.AimbotEnabled then
-        FOVCircle.Visible = false
-        if activeTween then
-            pcall(function() activeTween:Cancel() end)
-            activeTween = nil
-        end
+        if FOVCircle then FOVCircle.Visible = false end
         return
     end
 
-    -- jeśli toggle włączony -> aktualizujemy circle
-    FOVCircle.Position = Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y)
-    FOVCircle.Radius = _G.CircleRadius
-    FOVCircle.Filled = _G.CircleFilled
-    FOVCircle.Color = _G.CircleColor
-    FOVCircle.Visible = _G.CircleVisible
-    FOVCircle.Transparency = _G.CircleTransparency
-    FOVCircle.NumSides = _G.CircleSides
-    FOVCircle.Thickness = _G.CircleThickness
+    -- update circle
+    if FOVCircle then
+        FOVCircle.Position = Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y)
+        FOVCircle.Radius = _G.CircleRadius
+        FOVCircle.Filled = _G.CircleFilled
+        FOVCircle.Color = _G.CircleColor
+        FOVCircle.Visible = _G.CircleVisible
+        FOVCircle.Transparency = _G.CircleTransparency
+        FOVCircle.NumSides = _G.CircleSides
+        FOVCircle.Thickness = _G.CircleThickness
+    end
 
-    -- Aimbot: działa tylko gdy Holding (RMB) i toggle włączony
     if Holding then
         local Target = GetClosestPlayer()
         if Target and Target.Character and Target.Character:FindFirstChild(_G.AimPart) then
             local AimPos = Target.Character[_G.AimPart].Position
 
-            -- anuluj poprzedni tween zanim utworzymy nowy
             if activeTween then
                 pcall(function() activeTween:Cancel() end)
                 activeTween = nil
             end
 
             local ok, t = pcall(function()
-                return TweenService:Create(Camera, TweenInfo.new(_G.Sensitivity, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {CFrame = CFrame.new(Camera.CFrame.Position, AimPos)})
+                return TweenService:Create(Camera, TweenInfo.new(_G.Sensitivity, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+                    {CFrame = CFrame.new(Camera.CFrame.Position, AimPos)})
             end)
             if ok and t then
                 activeTween = t
                 pcall(function() activeTween:Play() end)
             end
         else
-            -- brak targetu -> anuluj aktywny tween
             if activeTween then
                 pcall(function() activeTween:Cancel() end)
                 activeTween = nil
@@ -477,6 +521,8 @@ RunService.RenderStepped:Connect(function()
         end
     end
 end)
+
+
 
 
 
@@ -499,9 +545,228 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/Xxtan31/Equinox-Hub/m
 local TabMain = Window:CreateTab("FARM", "dollar-sign")
 local SectionMain = TabMain:CreateSection("Main")
 
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local BredMakurzFolder = Workspace:WaitForChild("Map"):WaitForChild("BredMakurz")
+
+local ESP_Enabled = false
+local highlights = {}
+
+-- 🟢 Tworzenie highlightu (raz na model)
+local function createHighlight(model)
+	if highlights[model] then return end
+	local highlight = Instance.new("Highlight")
+	highlight.Name = "SafeESP (BUGGY)"
+	highlight.FillTransparency = 0.6
+	highlight.OutlineTransparency = 0.1
+	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	highlight.Adornee = model
+	highlight.Parent = model
+	highlights[model] = highlight
+end
+
+-- 🔴 Aktualizacja koloru wg "Broken"
+local function updateColor(model)
+	local highlight = highlights[model]
+	if not highlight then return end
+	local values = model:FindFirstChild("Values")
+	local broken = values and values:FindFirstChild("Broken")
+	if broken and broken:IsA("BoolValue") then
+		if broken.Value then
+			highlight.FillColor = Color3.fromRGB(255, 0, 0)
+			highlight.OutlineColor = Color3.fromRGB(120, 0, 0)
+		else
+			highlight.FillColor = Color3.fromRGB(0, 255, 0)
+			highlight.OutlineColor = Color3.fromRGB(0, 120, 0)
+		end
+	end
+end
+
+-- 🧹 Usuwa wszystkie highlighty bez lagów
+local function clearESP()
+	for model, hl in pairs(highlights) do
+		if hl and hl.Parent then
+			hl:Destroy()
+		end
+	end
+	table.clear(highlights)
+end
+
+-- ⚙️ Delikatne odświeżanie (bez lagów)
+local refreshIndex = 1
+RunService.Stepped:Connect(function()
+	if not ESP_Enabled then return end
+
+	local models = BredMakurzFolder:GetChildren()
+	if #models == 0 then return end
+
+	refreshIndex += 1
+	if refreshIndex > #models then
+		refreshIndex = 1
+	end
+
+	local model = models[refreshIndex]
+	if model and model:IsA("Model") then
+		task.defer(function()
+			if not ESP_Enabled then return end -- nie rób nic jeśli wyłączone!
+			createHighlight(model)
+			updateColor(model)
+		end)
+	end
+end)
+
+-- 🔁 Śledzenie zmian "Broken" (tylko gdy włączone)
+local function trackBrokenValue(model)
+	local values = model:FindFirstChild("Values")
+	if values then
+		local broken = values:FindFirstChild("Broken")
+		if broken and broken:IsA("BoolValue") then
+			broken:GetPropertyChangedSignal("Value"):Connect(function()
+				if ESP_Enabled then
+					updateColor(model)
+				end
+			end)
+		end
+	end
+end
+
+-- 📦 Nowe modele
+BredMakurzFolder.ChildAdded:Connect(function(model)
+	if not ESP_Enabled then return end
+	if model:IsA("Model") then
+		task.defer(function()
+			createHighlight(model)
+			updateColor(model)
+			trackBrokenValue(model)
+		end)
+	end
+end)
+
+-- 🧩 Toggle GUI
+local ESPToggle = TabMain:CreateToggle({
+	Name = "Safes ESP",
+	CurrentValue = false,
+	Flag = "BredMakurzESPToggle",
+	Callback = function(Value)
+		ESP_Enabled = Value
+
+		if not Value then
+			clearESP() -- natychmiastowe wyłączenie ESP
+		else
+			-- włączanie ESP – bez lagów
+			task.spawn(function()
+				for _, model in ipairs(BredMakurzFolder:GetChildren()) do
+					if not ESP_Enabled then break end
+					if model:IsA("Model") then
+						createHighlight(model)
+						updateColor(model)
+						trackBrokenValue(model)
+						task.wait(0.005)
+					end
+				end
+			end)
+		end
+	end,
+})
+
+
+
+
+
+local Workspace = game:GetService("Workspace")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+
+local Prox_Enabled = false
+local RefreshRate = 0.1 -- odświeżanie co 0.1s
+local Range = 300       -- zasięg działania
+
+local prompts = {}
+local lastRefresh = 0
+
+-- 🧠 Rejestracja promptów
+local function registerPrompt(prompt)
+	if not prompt:GetAttribute("OriginalHold") then
+		prompt:SetAttribute("OriginalHold", prompt.HoldDuration)
+	end
+	table.insert(prompts, prompt)
+end
+
+-- 📦 Zbiera wszystkie prompty raz
+local function collectPrompts()
+	prompts = {}
+	for _, obj in ipairs(Workspace:GetDescendants()) do
+		if obj:IsA("ProximityPrompt") then
+			registerPrompt(obj)
+		end
+	end
+end
+
+-- 🧩 Reaguje na nowe prompty
+Workspace.DescendantAdded:Connect(function(obj)
+	if obj:IsA("ProximityPrompt") then
+		registerPrompt(obj)
+	end
+end)
+
+-- ⚙️ Ustawia HoldDuration = 0 w zasięgu
+local function updateNearbyPrompts()
+	local char = LocalPlayer.Character
+	if not char then return end
+	local root = char:FindFirstChild("HumanoidRootPart")
+	if not root then return end
+
+	for _, prompt in ipairs(prompts) do
+		if prompt and prompt.Parent and prompt.Parent:IsA("BasePart") then
+			local dist = (prompt.Parent.Position - root.Position).Magnitude
+			if dist <= Range then
+				prompt.HoldDuration = 0
+			else
+				local original = prompt:GetAttribute("OriginalHold")
+				if original then
+					prompt.HoldDuration = original
+				end
+			end
+		end
+	end
+end
+
+-- 🧠 Lekki loop (co 0.1 sekundy)
+RunService.Heartbeat:Connect(function(dt)
+	if not Prox_Enabled then return end
+	if tick() - lastRefresh > RefreshRate then
+		lastRefresh = tick()
+		task.spawn(updateNearbyPrompts)
+	end
+end)
+
+-- 🎚️ Toggle w GUI
+local ProximityToggle = TabMain:CreateToggle({
+	Name = "Instant Grab",
+	CurrentValue = false,
+	Flag = "InstantProxNoLag",
+	Callback = function(state)
+		Prox_Enabled = state
+		if state then
+			collectPrompts()
+			updateNearbyPrompts()
+		else
+			for _, prompt in ipairs(prompts) do
+				if prompt and prompt:GetAttribute("OriginalHold") then
+					prompt.HoldDuration = prompt:GetAttribute("OriginalHold")
+				end
+			end
+		end
+	end,
+})
+
+
+
 
 
 local TabMain = Window:CreateTab("UPDATE", "bell-plus")
 local SectionMain = TabMain:CreateSection("Main")
 
-local Label = TabMain:CreateLabel("UI APPEARANCE CHANGED, NEW BUTTONS ADDED, AND FARM MAYBE WILL BE IN THE NEXT UPDATE", "bitcoin")
+local Label = TabMain:CreateLabel("NEW BUTTONS ADDED", "bitcoin")
